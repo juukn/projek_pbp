@@ -7,7 +7,6 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.graphics import Color, Rectangle
 import requests
 
-
 class WeatherApp(App):
     def build(self):
         # Root layout
@@ -29,32 +28,31 @@ class WeatherApp(App):
         )
         root.add_widget(title_label)
 
-        # City input with reduced size
+        # City input with centered size
         self.city_input = TextInput(
             hint_text="Masukkan nama kota...",
             font_size=18,
-            size_hint=(0.8, 0.1),  # Reduce the width of the input
-            background_color=(0, 0, 0, 1),  # Black background
-            foreground_color=(1, 1, 1, 1),  # White text
-            padding=(10, 10),
+            size_hint=(0.8, 0.1),
+            background_color=(0, 0, 0, 1),
+            foreground_color=(1, 1, 1, 1),
             multiline=False,
-            pos_hint={'center_x': 0.5}  # Center horizontally
+            pos_hint={'center_x': 0.5},
         )
         root.add_widget(self.city_input)
 
-        # Check weather button with reduced size
+        # Check weather button
         self.check_button = Button(
             text="Cek Cuaca",
             font_size=20,
-            size_hint=(0.8, 0.1),  # Reduce the width of the button
+            size_hint=(0.8, 0.1),
             background_color=(0, 0.6, 1, 1),
             color=(1, 1, 1, 1),
-            pos_hint={'center_x': 0.5}  # Center horizontally
+            pos_hint={'center_x': 0.5},
         )
         self.check_button.bind(on_press=self.get_weather)
         root.add_widget(self.check_button)
 
-        # Layout for weather results (Tabel GridLayout)
+        # Layout for weather results
         self.result_layout = GridLayout(cols=2, size_hint_y=None, padding=10, spacing=10)
         self.result_layout.bind(minimum_height=self.result_layout.setter('height'))
         root.add_widget(self.result_layout)
@@ -65,108 +63,53 @@ class WeatherApp(App):
         self.rect.size = self.root.size
         self.rect.pos = self.root.pos
 
+    def create_label(self, text, bold=False, color="ffffff", **kwargs):
+        """Helper function to create labels with consistent styling."""
+        return Label(
+            text=f"[color={color}]{'[b]' if bold else ''}{text}{'[/b]' if bold else ''}[/color]",
+            markup=True,
+            size_hint_y=None,
+            halign="left",
+            valign="middle",
+            **kwargs,
+        )
+
     def get_weather(self, instance):
         self.result_layout.clear_widgets()  # Clear previous results
         city = self.city_input.text.strip()
         if not city:
             self.result_layout.add_widget(
-                Label(
-                    text="[color=ff3333][b]Masukkan nama kota terlebih dahulu![/b][/color]",
-                    markup=True,
-                    size_hint=(1, None),
-                    halign="center",
-                    valign="middle",
-                )
+                self.create_label("Masukkan nama kota terlebih dahulu!", bold=True, color="ff3333", size_hint=(1, None))
             )
             return
 
         api_key = "5fcecfa19065b9593b87735917c5c2ea"
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+        url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric&lang=id"
 
         try:
             response = requests.get(url)
+            response.raise_for_status()
             data = response.json()
 
             if data["cod"] == "404":
                 self.result_layout.add_widget(
-                    Label(
-                        text="[color=ff3333][b]Kota tidak ditemukan![/b][/color]",
-                        markup=True,
-                        size_hint=(1, None),
-                        halign="center",
-                        valign="middle",
-                    )
+                    self.create_label("Kota tidak ditemukan!", bold=True, color="ff3333", size_hint=(1, None))
                 )
             else:
-                # Menambahkan data cuaca dalam format yang terstruktur
-                self.result_layout.add_widget(
-                    Label(
-                        text="Cuaca:",
-                        font_size=18,
-                        halign="left",
-                        size_hint_y=None,
-                        height=40
-                    )
-                )
-                self.result_layout.add_widget(
-                    Label(
-                        text=data["weather"][0]["description"].capitalize(),
-                        font_size=18,
-                        halign="left",
-                        size_hint_y=None,
-                        height=40
-                    )
-                )
+                # Display weather results
+                weather_data = {
+                    "Cuaca": data["weather"][0]["description"].capitalize(),
+                    "Suhu": f"{data['main']['temp']}°C",
+                    "Kelembapan": f"{data['main']['humidity']}%",
+                }
+                for key, value in weather_data.items():
+                    self.result_layout.add_widget(self.create_label(key, font_size=18, height=40))
+                    self.result_layout.add_widget(self.create_label(value, font_size=18, height=40))
 
-                self.result_layout.add_widget(
-                    Label(
-                        text="Suhu:",
-                        font_size=18,
-                        halign="left",
-                        size_hint_y=None,
-                        height=40
-                    )
-                )
-                self.result_layout.add_widget(
-                    Label(
-                        text=f"{data['main']['temp']}°C",
-                        font_size=18,
-                        halign="left",
-                        size_hint_y=None,
-                        height=40
-                    )
-                )
-
-                self.result_layout.add_widget(
-                    Label(
-                        text="Kelembapan:",
-                        font_size=18,
-                        halign="left",
-                        size_hint_y=None,
-                        height=40
-                    )
-                )
-                self.result_layout.add_widget(
-                    Label(
-                        text=f"{data['main']['humidity']}%",
-                        font_size=18,
-                        halign="left",
-                        size_hint_y=None,
-                        height=40
-                    )
-                )
-
-        except Exception as e:
+        except requests.RequestException as e:
             self.result_layout.add_widget(
-                Label(
-                    text=f"[color=ff3333]Terjadi kesalahan: {e}[/color]",
-                    markup=True,
-                    size_hint=(1, None),
-                    halign="center",
-                    valign="middle",
-                )
+                self.create_label(f"Terjadi kesalahan koneksi: {e}", bold=True, color="ff3333", size_hint=(1, None))
             )
-
 
 # Run the application
 if _name_ == "_main_":
